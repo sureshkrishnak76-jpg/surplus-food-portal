@@ -21,6 +21,9 @@ pipeline {
     }
 
     environment {
+        // Forces Windows paths into the pipeline execution context to fix the "cmd" error
+        PATH = "C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem;${env.PATH}"
+        
         IMAGE_NAME = 'sureshkrishnak/surplus-food-portal'
         IMAGE_TAG = "build-${BUILD_NUMBER}"
         K8S_DEPLOYMENT = 'surplus-food-portal'
@@ -28,7 +31,6 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -37,7 +39,6 @@ pipeline {
 
         stage('Parallel Validation') {
             parallel {
-
                 stage('Validate HTML') {
                     steps {
                         script {
@@ -68,7 +69,6 @@ pipeline {
                                     error("${it} is missing")
                                 }
                             }
-
                             echo 'Required files validated'
                         }
                     }
@@ -90,28 +90,22 @@ pipeline {
                     params.PUSH_IMAGE
                 }
             }
-
             steps {
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'dockerhub-credentials',
-                        usernameVariable: 'sureshkrishnak',
-                        passwordVariable: 'SALAARs@123'
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    sh '''
-                        set +x
-                        printf '%s' "$DOCKER_PASS" |
-                            docker login \
-                            --username "$DOCKER_USER" \
-                            --password-stdin
-                    '''
-
+                    // Replaced Linux commands with Windows Batch syntax
+                    bat '@echo off && echo %DOCKER_PASS% | docker login --username %DOCKER_USER% --password-stdin'
+                    
                     script {
                         docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
                     }
-
-                    sh 'docker logout'
+                    
+                    bat 'docker logout'
                 }
             }
         }
@@ -122,15 +116,13 @@ pipeline {
                     params.DEPLOY_ENV == 'development'
                 }
             }
-
             steps {
                 script {
-                    def previousRevision = sh(
+                    // Capture previous revision using Windows Batch format
+                    def previousRevision = bat(
                         script: """
-                            kubectl get deployment ${K8S_DEPLOYMENT} \
-                                -n ${K8S_NAMESPACE} \
-                                -o jsonpath='{.metadata.annotations.deployment\\.kubernetes\\.io/revision}' \
-                                2>/dev/null || echo 0
+                            @echo off
+                            kubectl get deployment ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} -o jsonpath="{.metadata.annotations.deployment\\.kubernetes\\.io/revision}" 2>NUL || echo 0
                         """,
                         returnStdout: true
                     ).trim()
@@ -142,62 +134,37 @@ pipeline {
                             passwordVariable: 'DOCKER_PASS'
                         )
                     ]) {
-                        sh '''
-                            set +x
-
-                            kubectl create secret docker-registry dockerhub-pull \
-                                --docker-server=https://index.docker.io/v1/ \
-                                --docker-username="$DOCKER_USER" \
-                                --docker-password="$DOCKER_PASS" \
-                                --namespace="$K8S_NAMESPACE" \
-                                --dry-run=client -o yaml |
-                            kubectl apply -f -
-                        '''
+                        // Creates registry secret safely using Windows command formatting
+                        bat """
+                            @echo off
+                            kubectl create secret docker-registry dockerhub-pull --docker-server=https://docker.io --docker-username="%DOCKER_USER%" --docker-password="%DOCKER_PASS%" --namespace="${K8S_NAMESPACE}" --dry-run=client -o yaml > secret.yaml
+                            kubectl apply -f secret.yaml
+                            del secret.yaml
+                        """
                     }
 
-                    sh """
-                        kubectl patch deployment ${K8S_DEPLOYMENT} \
-                            -n ${K8S_NAMESPACE} \
-                            --type=strategic \
-                            -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"dockerhub-pull"}]}}}}'
+                    bat """
+                        kubectl patch deployment ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --type=strategic -p "{\\\"spec\\\":{\\\"template\\\":{\\\"spec\\\":{\\\"imagePullSecrets\\\":[{\\\"name\\\":\\\"dockerhub-pull\\\"}]}}}}"
                     """
 
                     try {
-                        sh """
-                            kubectl set image \
-                                deployment/${K8S_DEPLOYMENT} \
-                                surplus-food-portal=${IMAGE_NAME}:${IMAGE_TAG} \
-                                -n ${K8S_NAMESPACE}
-
-                            kubectl rollout status \
-                                deployment/${K8S_DEPLOYMENT} \
-                                -n ${K8S_NAMESPACE} \
-                                --timeout=120s
+                        bat """
+                            kubectl set image deployment/${K8S_DEPLOYMENT} surplus-food-portal=${IMAGE_NAME}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
+                            kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=120s
                         """
-
                         echo 'Kubernetes deployment successful'
 
                     } catch (Exception e) {
-
                         echo 'Deployment failed. Attempting automatic rollback.'
 
-                        if (!previousRevision.isInteger() ||
-                            previousRevision == '0') {
+                        if (!previousRevision.isInteger() || previousRevision == '0') {
                             error('No previous stable revision available')
                         }
 
-                        sh """
-                            kubectl rollout undo \
-                                deployment/${K8S_DEPLOYMENT} \
-                                -n ${K8S_NAMESPACE} \
-                                --to-revision=${previousRevision}
-
-                            kubectl rollout status \
-                                deployment/${K8S_DEPLOYMENT} \
-                                -n ${K8S_NAMESPACE} \
-                                --timeout=120s
+                        bat """
+                            kubectl rollout undo deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --to-revision=${previousRevision}
+                            kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=120s
                         """
-
                         error('Faulty rollout detected. Previous revision restored.')
                     }
                 }
@@ -210,18 +177,11 @@ pipeline {
                     params.DEPLOY_ENV == 'development'
                 }
             }
-
             steps {
-                sh """
-                    kubectl get deployment \
-                        ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE}
-
-                    kubectl get pods \
-                        -n ${K8S_NAMESPACE} \
-                        -l app=${K8S_DEPLOYMENT}
-
-                    kubectl get service \
-                        surplus-food-service -n ${K8S_NAMESPACE}
+                bat """
+                    kubectl get deployment ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE}
+                    kubectl get pods -n ${K8S_NAMESPACE} -l app=${K8S_DEPLOYMENT}
+                    kubectl get service surplus-food-service -n ${K8S_NAMESPACE}
                 """
             }
         }
@@ -240,11 +200,9 @@ pipeline {
         success {
             echo 'CI/CD pipeline completed successfully'
         }
-
         failure {
             echo 'Pipeline failed. Check the Jenkins console output.'
         }
-
         always {
             echo 'Pipeline execution finished'
         }
