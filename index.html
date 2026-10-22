@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surplus Food Redistribution Portal</title>
+
+```
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f4f7f4;
+        color: #25352c;
+    }
+
+    header {
+        background: #176b45;
+        color: white;
+        padding: 25px 6%;
+    }
+
+    header h1 {
+        margin: 0 0 8px;
+    }
+
+    main {
+        max-width: 1200px;
+        margin: auto;
+        padding: 25px 18px;
+    }
+
+    .summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+
+    .card {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        border-top: 4px solid #176b45;
+        box-shadow: 0 3px 10px #00000010;
+    }
+
+    .card h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+    }
+
+    .number {
+        font-size: 30px;
+        font-weight: bold;
+    }
+
+    .section-title {
+        margin-top: 25px;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 3px 10px #00000010;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 950px;
+    }
+
+    th, td {
+        padding: 14px;
+        border-bottom: 1px solid #e5eae6;
+        text-align: left;
+    }
+
+    th {
+        background: #e5f1e9;
+    }
+
+    .status {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .available {
+        background: #d9f5df;
+        color: #176b35;
+    }
+
+    .reserved {
+        background: #fff0c2;
+        color: #805900;
+    }
+
+    .collected {
+        background: #dceaff;
+        color: #164b93;
+    }
+
+    .redistributed {
+        background: #e9ddff;
+        color: #5c3298;
+    }
+
+    .notice {
+        margin-top: 20px;
+        padding: 16px;
+        background: #e5f1e9;
+        border-radius: 8px;
+    }
+
+    footer {
+        text-align: center;
+        padding: 22px;
+        color: #526358;
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+<header>
+    <h1>Surplus Food Redistribution Portal</h1>
+    <p>Connecting surplus food providers with community organizations.</p>
+</header>
+
+<main>
+
+```
+<h2>Redistribution Status Dashboard</h2>
+
+<section class="summary">
+    <div class="card">
+        <h3>Available Records</h3>
+        <div class="number" id="availableCount">0</div>
+    </div>
+
+    <div class="card">
+        <h3>Reserved Records</h3>
+        <div class="number" id="reservedCount">0</div>
+    </div>
+
+    <div class="card">
+        <h3>Collected Records</h3>
+        <div class="number" id="collectedCount">0</div>
+    </div>
+
+    <div class="card">
+        <h3>Redistributed Records</h3>
+        <div class="number" id="redistributedCount">0</div>
+    </div>
+
+    <div class="card">
+        <h3>Available Quantity</h3>
+        <div class="number" id="availableQuantity">0 kg</div>
+    </div>
+</section>
+
+<h2 class="section-title">Surplus Food Records</h2>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Food Item</th>
+                <th>Provider</th>
+                <th>Quantity</th>
+                <th>Collection Deadline</th>
+                <th>Pickup Location</th>
+                <th>Participating Organization</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody id="foodRecords">
+            <tr>
+                <td>Vegetable Rice</td>
+                <td>Green Leaf Restaurant</td>
+                <td>25 kg</td>
+                <td>Today, 12:30 PM</td>
+                <td>Main Street, Vellore</td>
+                <td>Helping Hands NGO</td>
+                <td data-status="Available">Available</td>
+            </tr>
+
+            <tr>
+                <td>Chapati and Curry</td>
+                <td>University Canteen</td>
+                <td>15 kg</td>
+                <td>Today, 1:00 PM</td>
+                <td>University Campus</td>
+                <td>Community Care Trust</td>
+                <td data-status="Reserved">Reserved</td>
+            </tr>
+
+            <tr>
+                <td>Fresh Bread</td>
+                <td>Sunrise Bakery</td>
+                <td>10 kg</td>
+                <td>Today, 2:00 PM</td>
+                <td>Gandhi Road, Vellore</td>
+                <td>Helping Hands NGO</td>
+                <td data-status="Collected">Collected</td>
+            </tr>
+
+            <tr>
+                <td>Cooked Rice and Sambar</td>
+                <td>Campus Dining Hall</td>
+                <td>30 kg</td>
+                <td>Today, 12:00 PM</td>
+                <td>North Campus</td>
+                <td>Food for All Foundation</td>
+                <td data-status="Redistributed">Redistributed</td>
+            </tr>
+
+            <tr>
+                <td>Vegetable Meals</td>
+                <td>Spice Garden Restaurant</td>
+                <td>20 kg</td>
+                <td>Today, 1:30 PM</td>
+                <td>Katpadi Road, Vellore</td>
+                <td>Community Care Trust</td>
+                <td data-status="Available">Available</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="notice">
+    <strong>Food safety reminder:</strong>
+    Collection deadlines must be respected. Providers should
+    confirm safe storage conditions before redistribution.
+</div>
+```
+
+</main>
+
+<footer>
+    Food Waste Tracking and Redistribution Portal |
+    Community Sustainability Initiative
+</footer>
+
+<script>
+    const rows = document.querySelectorAll("#foodRecords tr");
+
+    const counts = {
+        Available: 0,
+        Reserved: 0,
+        Collected: 0,
+        Redistributed: 0
+    };
+
+    let availableKg = 0;
+
+    rows.forEach(row => {
+        const quantity = Number(
+            row.cells[2].textContent.replace("kg", "").trim()
+        );
+
+        const statusCell = row.querySelector("[data-status]");
+        const status = statusCell.dataset.status;
+
+        counts[status]++;
+
+        if (status === "Available") {
+            availableKg += quantity;
+        }
+
+        statusCell.innerHTML =
+            '<span class="status ' +
+            status.toLowerCase() +
+            '">' + status + '</span>';
+    });
+
+    document.getElementById("availableCount").textContent =
+        counts.Available;
+
+    document.getElementById("reservedCount").textContent =
+        counts.Reserved;
+
+    document.getElementById("collectedCount").textContent =
+        counts.Collected;
+
+    document.getElementById("redistributedCount").textContent =
+        counts.Redistributed;
+
+    document.getElementById("availableQuantity").textContent =
+        availableKg + " kg";
+</script>
+
+</body>
+</html>
