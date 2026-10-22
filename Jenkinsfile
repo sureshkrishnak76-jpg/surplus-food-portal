@@ -12,7 +12,6 @@ pipeline {
             choices: ['development', 'production'],
             description: 'Choose the deployment environment'
         )
-
         booleanParam(
             name: 'PUSH_IMAGE',
             defaultValue: true,
@@ -21,8 +20,8 @@ pipeline {
     }
 
     environment {
-        // Forces Windows paths into the pipeline execution context to fix the "cmd" error
-        PATH = "C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem;${env.PATH}"
+        // Enforces core execution paths straight to your Windows context
+        PATH = "C:\\Program Files\\Docker\\Docker\\resources\\bin;C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem;${env.PATH}"
         
         IMAGE_NAME = 'sureshkrishnak/surplus-food-portal'
         IMAGE_TAG = "build-${BUILD_NUMBER}"
@@ -42,32 +41,19 @@ pipeline {
                 stage('Validate HTML') {
                     steps {
                         script {
-                            if (!fileExists('index.html')) {
-                                error('index.html is missing')
-                            }
-
+                            if (!fileExists('index.html')) { error('index.html is missing') }
                             def html = readFile('index.html')
-
-                            if (!html.contains('<html')) {
-                                error('HTML document is invalid')
-                            }
-
-                            if (!html.contains('foodRecords')) {
-                                error('Food records section is missing')
-                            }
-
+                            if (!html.contains('<html')) { error('HTML document is invalid') }
+                            if (!html.contains('foodRecords')) { error('Food records section is missing') }
                             echo 'HTML validation passed'
                         }
                     }
                 }
-
                 stage('Validate Deployment Files') {
                     steps {
                         script {
                             ['Dockerfile', 'deployment.yaml', 'Jenkinsfile'].each {
-                                if (!fileExists(it)) {
-                                    error("${it} is missing")
-                                }
+                                if (!fileExists(it)) { error("${it} is missing") }
                             }
                             echo 'Required files validated'
                         }
@@ -85,11 +71,7 @@ pipeline {
         }
 
         stage('Push Docker Image') {
-            when {
-                expression {
-                    params.PUSH_IMAGE
-                }
-            }
+            when { expression { params.PUSH_IMAGE } }
             steps {
                 withCredentials([
                     usernamePassword(
@@ -98,27 +80,20 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-                    // Replaced Linux commands with Windows Batch syntax
                     bat '@echo off && echo %DOCKER_PASS% | docker login --username %DOCKER_USER% --password-stdin'
-                    
                     script {
                         docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
                     }
-                    
                     bat 'docker logout'
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
-            when {
-                expression {
-                    params.DEPLOY_ENV == 'development'
-                }
-            }
+            when { expression { params.DEPLOY_ENV == 'development' } }
             steps {
                 script {
-                    // Capture previous revision using Windows Batch format
+                    // Extract existing deployment revision context natively on Windows
                     def previousRevision = bat(
                         script: """
                             @echo off
@@ -134,7 +109,6 @@ pipeline {
                             passwordVariable: 'DOCKER_PASS'
                         )
                     ]) {
-                        // Creates registry secret safely using Windows command formatting
                         bat """
                             @echo off
                             kubectl create secret docker-registry dockerhub-pull --docker-server=https://docker.io --docker-username="%DOCKER_USER%" --docker-password="%DOCKER_PASS%" --namespace="${K8S_NAMESPACE}" --dry-run=client -o yaml > secret.yaml
@@ -150,33 +124,29 @@ pipeline {
                     try {
                         bat """
                             kubectl set image deployment/${K8S_DEPLOYMENT} surplus-food-portal=${IMAGE_NAME}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
-                            kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=15s
                         """
                         echo 'Kubernetes deployment successful'
 
                     } catch (Exception e) {
-                        echo 'Deployment failed. Attempting automatic rollback.'
+                        echo '❌ FAULTY UPDATE DETECTED! Initiating automatic fallback rollback...'
 
                         if (!previousRevision.isInteger() || previousRevision == '0') {
-                            error('No previous stable revision available')
+                            error('No previous stable revision available to recover')
                         }
 
                         bat """
                             kubectl rollout undo deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --to-revision=${previousRevision}
                             kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=120s
                         """
-                        error('Faulty rollout detected. Previous revision restored.')
+                        error('Faulty rollout automatically safely rolled back to a stable configuration.')
                     }
                 }
             }
         }
 
         stage('Verify Deployment') {
-            when {
-                expression {
-                    params.DEPLOY_ENV == 'development'
-                }
-            }
+            when { expression { params.DEPLOY_ENV == 'development' } }
             steps {
                 bat """
                     kubectl get deployment ${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE}
@@ -197,14 +167,7 @@ pipeline {
     }
 
     post {
-        success {
-            echo 'CI/CD pipeline completed successfully'
-        }
-        failure {
-            echo 'Pipeline failed. Check the Jenkins console output.'
-        }
-        always {
-            echo 'Pipeline execution finished'
-        }
+        success { echo 'CI/CD pipeline completed successfully' }
+        failure { echo 'Pipeline terminated due to structural errors. Review console output.' }
     }
 }
